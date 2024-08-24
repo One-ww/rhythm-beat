@@ -1,5 +1,5 @@
-const { readFileSync, writeFileSync } = require("fs");
-const { createDecipheriv } = require("crypto");
+const { readFileSync, writeFileSync } = require('fs')
+const { createDecipheriv } = require('crypto')
 /**
  * @function outputMp3ByNCM
  * @description 网易云音乐转码
@@ -8,118 +8,115 @@ const { createDecipheriv } = require("crypto");
  * @return {void} 没有返回值
  */
 function outputMp3ByNCM(sourcePath, outputPath, outputImgPath) {
-  const content = readFileSync(sourcePath);
-  const buff = Buffer.from(content);
+  const content = readFileSync(sourcePath)
+  const buff = Buffer.from(content)
 
-  let start = 0;
+  let start = 0
 
   // 1. 读取 8 字节,获取 magic header
-  let temp = buff.slice(start, start + 8);
-  start += 10; // 空余 2 字节
-  let header = Buffer.from([0x43, 0x54, 0x45, 0x4e, 0x46, 0x44, 0x41, 0x4d]);
+  let temp = buff.slice(start, start + 8)
+  start += 10 // 空余 2 字节
+  let header = Buffer.from([0x43, 0x54, 0x45, 0x4e, 0x46, 0x44, 0x41, 0x4d])
   if (!header.equals(temp)) {
-    throw new Error("文件头已损坏");
+    throw new Error('文件头已损坏')
   }
 
   // 2. 读取 32 位 4字节的密钥长度
-  let keyLength = buff.readUInt32LE(start);
-  start += 4;
+  let keyLength = buff.readUInt32LE(start)
+  start += 4
   //3. 根据密钥长度读取密钥内容
-  temp = buff.slice(start, start + keyLength);
-  let cipherText = temp.map((t) => {
-    return t ^ 0x64;
-  });
-  start += keyLength;
+  temp = buff.slice(start, start + keyLength)
+  let cipherText = temp.map(t => {
+    return t ^ 0x64
+  })
+  start += keyLength
 
   // 解密的key
-  let key = Buffer.from("687a4852416d736f356b496e62617857", "hex");
+  let key = Buffer.from('687a4852416d736f356b496e62617857', 'hex')
 
   // aes-128-ecb 解密
-  let decipher = createDecipheriv("aes-128-ecb", key, "");
-  let decodeText = decipher.update(cipherText);
-  decodeText += decipher.final();
+  let decipher = createDecipheriv('aes-128-ecb', key, '')
+  let decodeText = decipher.update(cipherText)
+  decodeText += decipher.final()
 
   // 得到 keyData
-  let keyData = decodeText.substr(17).trim();
-  let key2Len = keyData.length;
-  keyData = Buffer.from(keyData);
+  let keyData = decodeText.substr(17).trim()
+  let key2Len = keyData.length
+  keyData = Buffer.from(keyData)
 
   // 将 keyData 做 RC4-KSA 算法解密
-  let keyBox = Buffer.alloc(256);
+  let keyBox = Buffer.alloc(256)
   for (let i = 0; i < keyBox.length; i++) {
-    keyBox[i] = i;
+    keyBox[i] = i
   }
-  let j = 0;
+  let j = 0
   for (let i = 0; i < 256; i++) {
-    j = (keyBox[i] + j + keyData[i % key2Len]) & 0xff;
-    [keyBox[i], keyBox[j]] = [keyBox[j], keyBox[i]];
+    j = (keyBox[i] + j + keyData[i % key2Len]) & 0xff
+    ;[keyBox[i], keyBox[j]] = [keyBox[j], keyBox[i]]
   }
 
   // 读取4字节获取meta 长度
-  let metaLen = buff.readUInt32LE(start);
-  start += 4;
+  let metaLen = buff.readUInt32LE(start)
+  start += 4
 
   // 读取 meta 内容
-  let metaContent = buff.slice(start, start + metaLen);
-  metaContent = metaContent.map((t) => t ^ 0x63);
+  let metaContent = buff.slice(start, start + metaLen)
+  metaContent = metaContent.map(t => t ^ 0x63)
 
   // 去掉 22位 163 key(Don't modify):
-  metaContent = metaContent.toString();
-  metaContent = metaContent.substr(22);
-  metaContent = Buffer.from(metaContent, "base64");
+  metaContent = metaContent.toString()
+  metaContent = metaContent.substr(22)
+  metaContent = Buffer.from(metaContent, 'base64')
 
   // 解密 meta 内容
-  const metaKey = Buffer.from("2331346C6A6B5F215C5D2630553C2728", "hex");
-  let decipher2 = createDecipheriv("aes-128-ecb", metaKey, "");
-  let meta = decipher2.update(metaContent);
-  meta += decipher2.final("utf8");
+  const metaKey = Buffer.from('2331346C6A6B5F215C5D2630553C2728', 'hex')
+  let decipher2 = createDecipheriv('aes-128-ecb', metaKey, '')
+  let meta = decipher2.update(metaContent)
+  meta += decipher2.final('utf8')
 
-  meta = meta.substr(6);
-  meta = JSON.parse(meta);
-  start += metaLen;
+  meta = meta.substr(6)
+  meta = JSON.parse(meta)
+  start += metaLen
 
   // 5字节空白
-  start += 5;
+  start += 5
   // 读取 4字节 crc32校验码
-  let crc32 = buff.readUInt32LE(start);
-  start += 4;
+  let crc32 = buff.readUInt32LE(start)
+  start += 4
 
   // 读取4字节图片大小
-  let imgLen = buff.readUInt32LE(start);
-  start += 4;
+  let imgLen = buff.readUInt32LE(start)
+  start += 4
 
   // 写入图片数据
-  let outputImgPullPath = outputImgPath
-    ? outputImgPath
-    : outputPath.split(".mp3")[0] + ".png";
-  writeFileSync(outputImgPullPath, buff.slice(start, start + imgLen));
-  start += imgLen;
+  let outputImgPullPath = outputImgPath ? outputImgPath : outputPath.split('.mp3')[0] + '.png'
+  writeFileSync(outputImgPullPath, buff.slice(start, start + imgLen))
+  start += imgLen
 
-  let audioData = buff.slice(start);
-  let m = 0;
+  let audioData = buff.slice(start)
+  let m = 0
   for (let i = 1; i < audioData.length + 1; i++) {
-    m = i & 0xff;
-    audioData[i - 1] ^=
-      keyBox[(keyBox[m] + keyBox[(keyBox[m] + m) & 0xff]) & 0xff];
+    m = i & 0xff
+    audioData[i - 1] ^= keyBox[(keyBox[m] + keyBox[(keyBox[m] + m) & 0xff]) & 0xff]
   }
 
-  writeFileSync(outputPath, audioData);
+  writeFileSync(outputPath, audioData)
 }
 
 outputMp3ByNCM(
-  "./NetEase-music/赵雷 - 鼓楼.ncm",
-  "./MP3-music/鼓楼/赵雷-鼓楼.mp3",
-  "./MP3-music/鼓楼/赵雷-鼓楼.png"
-);
+  './NetEase-music/赵雷 - 鼓楼.ncm',
+  './MP3-music/赵雷-鼓楼.mp3',
+  './MP3-music/赵雷-鼓楼.png'
+)
 
 outputMp3ByNCM(
-  "./NetEase-music/王宇宙Leto - 听风告白.ncm",
-  "./MP3-music/听风告白/王宇宙Leto - 听风告白.mp3",
-  "./MP3-music/听风告白/王宇宙Leto - 听风告白.png"
-);
+  './NetEase-music/王宇宙Leto - 听风告白.ncm',
+  './MP3-music/王宇宙Leto - 听风告白.mp3',
+  './MP3-music/王宇宙Leto - 听风告白.png'
+)
 
 outputMp3ByNCM(
-  "./NetEase-music/Rachel Platten - Fight Song.ncm",
-  "./MP3-music/Fight Song/Rachel Platten - Fight Song.mp3",
-  "./MP3-music/Fight Song/Rachel Platten - Fight Song.png"
-);
+  './NetEase-music/Rachel Platten - Fight Song.ncm',
+  './MP3-music/Rachel Platten - Fight Song.mp3',
+  './MP3-music/Rachel Platten - Fight Song.png'
+)
