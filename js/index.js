@@ -2,7 +2,7 @@ const cvs = document.querySelector("canvas");
 const ctx = cvs.getContext("2d");
 
 const img = new Image();
-img.src = "./img/赵雷-鼓楼.png";
+img.src = "./img/Rachel Platten - Fight Song.png";
 let rotationAngle = 0; // 初始图片旋转角度
 
 // 初始化canvas的尺寸
